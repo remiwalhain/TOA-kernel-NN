@@ -27,10 +27,6 @@ t_pres_to_use = ["100"] # Atmosphere temp pressures"
 q_pres_to_use = ["750", "1000"] # Water Vapor pressures
 
 predictors = []
-#for var in predictor_vars:
-#    field = ERA5_single_layer[var][0]  # shape: (lat, lon)
-#    field_regridded = field.interp_like(kernel)  # regrid to kernel grid
-#    predictors.append(field_regridded.values.flatten())
 
 for var in predictor_vars:
     if (var != "t") and (var != "q"): # Not t or q
