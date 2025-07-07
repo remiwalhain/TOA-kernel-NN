@@ -22,9 +22,9 @@ ERA5_single_layer = xr.open_dataset("2013_jan_single_layer.nc")
 ERA5_ta_pressures = xr.open_dataset("2013_jan_Ta_pressures.nc")
 ERA5_q_pressures = xr.open_dataset("2013_jan_wv_pres.nc")
 
-predictor_vars = ["q", "t", "skt", "sp", "t2m", "tcwv"] # <-----------------------------------
-t_pres_to_use = ["100"] # Atmosphere temp pressures"
-q_pres_to_use = ["750", "1000"] # Water Vapor pressures
+predictor_vars = ["q", "t", "skt", "sp", "t2m", "tcwv"] # <----------------------------------- Arrows indicate where to modify
+t_pres_to_use = ["100"] # Atmosphere temp pressures" <----------------------------------- 
+q_pres_to_use = ["750", "1000"] # Water Vapor pressures <----------------------------------- 
 
 predictors = []
 
