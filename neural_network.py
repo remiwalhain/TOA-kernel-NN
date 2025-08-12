@@ -5,24 +5,29 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import json
+import joblib
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error, r2_score
 
 """
 IMPORT DATA
 """
 # Load kernel data: SPECIFY FILE NAMES
 kernel_ds = xr.open_dataset("ERA5_kernel_ts_TOA.nc")
-kernel = kernel_ds["TOA_clr"][0] # shape: (lat, lon)
+kernel = kernel_ds["TOA_clr"][0] # shape: (lat, lon) - Month of January # <----------------------------------- Modify month
 kernel_flat = kernel.values.flatten()  # shape: (n_points,)
 
 # Load predictors
 ERA5_single_layer = xr.open_dataset("2013_jan_single_layer.nc")
+#ERA5_pressures = xr.open_dataset("2013_jul_Ta_q_pres.nc")
+#ERA5_ta_pressures = ERA5_pressures["t"]
+#ERA5_q_pressures = ERA5_pressures["q"]
 ERA5_ta_pressures = xr.open_dataset("2013_jan_Ta_pressures.nc")
 ERA5_q_pressures = xr.open_dataset("2013_jan_wv_pres.nc")
 
-predictor_vars = ["q", "t", "skt", "sp", "t2m", "tcwv"] # <----------------------------------- Arrows indicate where to modify
+predictor_vars = ["q", "skt", "sp", "tcwv"] # <----------------------------------- Arrows indicate where to modify
 t_pres_to_use = ["100"] # Atmosphere temp pressures" <----------------------------------- 
 q_pres_to_use = ["750", "1000"] # Water Vapor pressures <----------------------------------- 
 
@@ -30,7 +35,7 @@ predictors = []
 
 for var in predictor_vars:
     if (var != "t") and (var != "q"): # Not t or q
-        field = ERA5_single_layer[var][0]  # shape: (lat, lon)
+        field = ERA5_single_layer[var].mean(dim='valid_time')  # shape: (lat, lon)
         field_regridded = field.interp_like(kernel)  # regrid to kernel grid
         predictors.append(field_regridded.values.flatten())
     elif (var == "t"): # t
@@ -101,7 +106,7 @@ model = KernelRegressor(input_dim=X_train.shape[1])
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-num_epochs = 200 # Can be modified
+num_epochs = 100 # Can be modified
 for epoch in range(num_epochs):
     model.train()
     running_loss = 0.0
@@ -120,7 +125,6 @@ model.eval()
 with torch.no_grad():
     y_pred = model(X_test_tensor).numpy() # Run the model on the test data
 
-from sklearn.metrics import r2_score
 r2 = r2_score(y_test, y_pred) # Compare the true values to the predicted values
 print(f"PyTorch MLP R-squared: {r2:.3f}") # MLP: multilayer perceptron (aka Neural Network)
 
@@ -141,8 +145,7 @@ full_pred_grid = np.full_like(kernel_flat, np.nan)  # start with nan array
 full_pred_grid[valid_mask] = y_pred_all
 
 # Reshape to (lat, lon)
-lat_len, lon_len = kernel.shape
-full_pred_2D = full_pred_grid.reshape((lat_len, lon_len))
+full_pred_2D = full_pred_grid.reshape(kernel.shape)
 true_kernel_2D = kernel.values  # original kernel
 
 # Flip to be the correct orientation
@@ -163,23 +166,26 @@ plt.colorbar()
 
 plt.tight_layout()
 #plt.show()
-plt.savefig("q750_q1000_t100_skt_sp_t2m_tcwv_NN_estimate.png") # <-----------------------------------
+plt.savefig("q750_q1000_skt_sp_tcwv_NN_estimate.png") # <-----------------------------------
 
 """
 SAVE TRAINED MODEL
 """
 # Save trained model weights
-torch.save(model.state_dict(), "q750_q1000_t100_skt_sp_t2m_tcwv_weights.pth") # <-----------------------------------
+torch.save(model.state_dict(), "q750_q1000_skt_sp_tcwv_weights.pth") # <-----------------------------------
+
+# Save the scaler
+joblib.dump(scaler, "q750_q1000_skt_sp_tcwv_scaler.pkl") # <-----------------------------------
 
 # Save predictions
-np.save("q750_q1000_t100_skt_sp_t2m_tcwv_predicted_kernel_2D.npy", full_pred_2D_plot) # <-----------------------------------
+np.save("q750_q1000_skt_sp_tcwv_predicted_kernel_2D.npy", full_pred_2D_plot) # <-----------------------------------
 
 # Save metrics (R-squared, losses)
 results = {
     "final_loss": float(loss.item()),
     "R_squared": r2
 }
-with open("q750_q1000_t100_skt_sp_t2m_tcwv_metrics.json", "w") as f: # <-----------------------------------
+with open("q750_q1000_skt_sp_tcwv_metrics.json", "w") as f: # <-----------------------------------
     json.dump(results, f, indent=4)
 
 
